@@ -1,0 +1,24 @@
+menuconfig SI5351
+    bool "Enable the driver library for the Si5351"
+    default y
+    depends on CONFIG_DT_HAS_SILABS_SI5351_ENABLED
+    select I2C
+    help
+      Helper functions for controlling the Si5351.
+
+if SI5351
+
+config SI5351_LOG_LEVEL
+    int "Default log level for SI5351"
+    default 4
+    help
+        The default log level, which is used to filter log messages.
+
+        0: None
+        1: Error
+        2: Warn
+        3: Info
+        4: Debug
+        5: Verbose
+
+endif #SI5351
