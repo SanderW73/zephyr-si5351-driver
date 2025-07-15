@@ -1,0 +1,1 @@
+add_subdirectory_ifdef(CONFIG_SI5351 si5351)

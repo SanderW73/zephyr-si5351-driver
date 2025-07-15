@@ -1,6 +1,5 @@
-name: si5351
 build:
-  cmake: .
   kconfig: Kconfig
+  cmake: .
   settings:
     dts_root: .
