@@ -1,9 +1,5 @@
 cmake_minimum_required(VERSION 3.20.0)
 
-# list(APPEND EXTRA_ZEPHYR_MODULES
-#     ${CMAKE_CURRENT_SOURCE_DIR}/..
-# )
-
 if(NOT cdc-acm-console IN_LIST SNIPPET)
   set(SNIPPET cdc-acm-console ${SNIPPET} CACHE STRING "" FORCE)
 endif()
