@@ -4,3 +4,245 @@ description: |
 compatible: "silabs,si5351"
 
 include: [i2c-device.yaml]
+
+properties:
+  
+  # Sets the multiplier for the specified PLL
+  #
+  # fVCO is the PLL output, and must be between 600..900MHz, where:
+  #
+  #     fVCO = fXTAL * (a+(b/c))
+  #
+  # fXTAL = the crystal input frequency
+  # a     = an integer between 15 and 90
+  # b     = the fractional numerator (0..1,048,575)
+  # c     = the fractional denominator (1..1,048,575)
+  #
+  # NOTE: Try to use integers whenever possible to avoid clock jitter
+  # (only use the a part, setting b to '0' and c to '1').
+  #
+  # See: http://www.silabs.com/Support%20Documents/TechnicalDocs/AN619.pdf
+
+  pll-a-mult:
+    type: int
+    description: |
+      The PLL integer multiplier (must be between 15 and 90)
+
+  pll-a-num:
+    type: int
+    description: |
+      The 20-bit numerator for fractional output (0..1,048,575).
+      Set this to '0' for integer output.
+    default: 0
+
+  pll-a-denom:
+    type: int
+    description: |
+      The 20-bit denominator for fractional output (1..1,048,575).
+      Set this to '1' or higher to avoid divider by zero errors.
+    default: 1
+
+  pll-b-mult:
+    type: int
+    description: |
+      The PLL integer multiplier (must be between 15 and 90)
+
+  pll-b-num:
+    type: int
+    description: |
+      The 20-bit numerator for fractional output (0..1,048,575).
+      Set this to '0' for integer output.
+    default: 0
+
+  pll-b-denom:
+    type: int
+    description: |
+      The 20-bit denominator for fractional output (1..1,048,575).
+      Set this to '1' or higher to avoid divider by zero errors.
+    default: 1
+
+  # Configures the Multisynth divider, which determines the
+  # output clock frequency based on the specified PLL input.
+  #
+  # The multisynth dividers are applied to the specified PLL output,
+  # and are used to reduce the PLL output to a valid range (500kHz
+  # to 160MHz). The relationship can be seen in this formula, where
+  # fVCO is the PLL output frequency and MSx is the multisynth
+  # divider:
+  #
+  #     fOUT = fVCO / MSx
+  #
+  # Valid multisynth dividers are 4, 6, or 8 when using integers,
+  # or any fractional values between 8 + 1/1,048,575 and 900 + 0/1
+  #
+  # The following formula is used for the fractional mode divider:
+  #
+  #     a + b / c
+  #
+  # a = The integer value, which must be 4, 6 or 8 in integer mode (MSx_INT=1)
+  #     or 8..900 in fractional mode (MSx_INT=0).
+  # b = The fractional numerator (0..1,048,575)
+  # c = The fractional denominator (1..1,048,575)
+  #
+  # @note   Try to use integers whenever possible to avoid clock jitter
+  #
+  # @note   For output frequencies > 150MHz, you must set the divider
+  #         to 4 and adjust to PLL to generate the frequency (for example
+  #         a PLL of 640 to generate a 160MHz output clock). This is not
+  #         yet supported in the driver, which limits frequencies to
+  #         500kHz .. 150MHz.
+  #
+  # @note   For frequencies below 500kHz (down to 8kHz) Rx_DIV must be
+  #         used, but this isn't currently implemented in the driver.
+
+  output-0-pll:
+    type: int
+    description: |
+      PLL source
+        0: PLL A
+        1: PLL B
+      Check include/dt-bindings/si5351.h file for pre-defined values.
+    enum:
+      - 0
+      - 1
+
+  output-0-div:
+    type: int
+    description: |
+      The integer divider for the Multi synth output.
+      If pure integer values are used, this value must
+      be one of: 4, 6, 8.
+      If fractional output is used, this value must be
+      between 8 and 900.
+
+  output-0-num:
+    type: int
+    description: |
+      The 20-bit numerator for fractional output
+      (0..1,048,575). Set this to '0' for integer output.
+    default: 0
+
+  output-0-denom:
+    type: int
+    description: |
+      The 20-bit denominator for fractional output
+      (1..1,048,575). Set this to '1' or higher to
+      avoid divide by zero errors.
+    default: 1
+
+  output-0-rdiv:
+    type: int
+    description: |
+      Configures the Multisynth divider using integer output.
+      Check include/dt-bindings/si5351.h file for pre-defined values.
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7 
+
+  output-1-pll:
+    type: int
+    description: |
+      PLL source
+        0: PLL A
+        1: PLL B
+      Check include/dt-bindings/si5351.h file for pre-defined values.
+    enum:
+      - 0
+      - 1
+
+  output-1-div:
+    type: int
+    description: |
+      The integer divider for the Multi synth output.
+      If pure integer values are used, this value must
+      be one of: 4, 6, 8.
+      If fractional output is used, this value must be
+      between 8 and 900.
+
+  output-1-num:
+    type: int
+    description: |
+      The 20-bit numerator for fractional output
+      (0..1,048,575). Set this to '0' for integer output.
+    default: 0
+
+  output-1-denom:
+    type: int
+    description: |
+      The 20-bit denominator for fractional output
+      (1..1,048,575). Set this to '1' or higher to
+      avoid divide by zero errors.
+    default: 1
+
+  output-1-rdiv:
+    type: int
+    description: |
+      Configures the Multisynth divider using integer output.
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7 
+
+  output-2-pll:
+    type: int
+    description: |
+      PLL source
+        0: PLL A
+        1: PLL B
+      Check include/dt-bindings/si5351.h file for pre-defined values.
+    enum:
+      - 0
+      - 1
+
+  output-2-div:
+    type: int
+    description: |
+      The integer divider for the Multi synth output.
+      If pure integer values are used, this value must
+      be one of: 4, 6, 8.
+      If fractional output is used, this value must be
+      between 8 and 900.
+
+  output-2-num:
+    type: int
+    description: |
+      The 20-bit numerator for fractional output
+      (0..1,048,575). Set this to '0' for integer output.
+    default: 0
+
+  output-2-denom:
+    type: int
+    description: |
+      The 20-bit denominator for fractional output
+      (1..1,048,575). Set this to '1' or higher to
+      avoid divide by zero errors.
+    default: 1
+
+  output-2-rdiv:
+    type: int
+    description: |
+      Configures the Multisynth divider using integer output.
+    enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7 
+
+  enable-outputs:
+    type: boolean
+    description: Enable all the outputs

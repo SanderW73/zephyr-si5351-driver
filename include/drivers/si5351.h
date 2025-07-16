@@ -6,9 +6,34 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/i2c.h>
 
+
+struct si5351_pll_config {
+  bool enabled;
+  int mult;
+  int num;
+  int denom;
+};
+
+struct si5351_output_config {
+  bool enabled;
+  int pll;
+  int div;
+  int num;
+  int denom;
+  int rdiv;
+};
+
 struct si5351_config {
 	struct i2c_dt_spec i2c;
+
+  struct si5351_pll_config pll_a;
+  struct si5351_pll_config pll_b;
+  struct si5351_output_config out_0;
+  struct si5351_output_config out_1;
+  struct si5351_output_config out_2;
+  bool enable_outputs;
 };
+
 
 typedef enum {
   SI5351_OUTPUT_0 = 0,

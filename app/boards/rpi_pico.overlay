@@ -1,26 +1,48 @@
-/ {
-    chosen {
-        app-led = &led0;
-    };
-};
+#include <dt-bindings/si5351.h>
 
 &i2c0 {
         status = "okay";
         pinctrl-0 = <&i2c0_default>;
-	    pinctrl-names = "default";
+        pinctrl-names = "default";
         clock-frequency = <I2C_BITRATE_FAST>;
         si5351@60 {
                 compatible = "silabs,si5351";
                 reg = <0x60>;
+
+                /* Setup PLLA to integer only mode */
+                /* 25MHz * 36 = 900 MHz, then 900 MHz / 8 = 112.5 MHz */
+                pll-a-mult = <36>;
+                output-0-pll = <SI5351_PLL_A>;
+                output-0-div = <8>;
+
+                /* Setup PLLB to fractional mode @616.66667MHz (XTAL * 24 + 2/3) */
+                pll-b-mult = <24>;
+                pll-b-num = <2>;
+                pll-b-denom = <3>;
+
+                /* Setup Multisynth 1 to 13.55311MHz (PLLB/45.5) */
+                output-1-pll = <SI5351_PLL_B>;
+                output-1-div = <45>;
+                output-1-num = <1>;
+                output-1-denom = <2>;
+
+                /* Setup Multisynth 2 to 10.706 KHz (PLLB/900) */
+                output-2-pll = <SI5351_PLL_B>;
+                output-2-div = <900>;
+                output-2-num = <0>;
+                output-2-denom = <1>;
+                output-2-rdiv = <SI5351_R_DIV_64>;
+
+                enable-outputs;
         };
 };
 
 &pinctrl {
-	i2c0_default: i2c0_default {
-		group1 {
-			pinmux = <I2C0_SDA_P4>, <I2C0_SCL_P5>;
-			input-enable;
-			input-schmitt-enable;
-		};
-	};
+    i2c0_default: i2c0_default {
+        group1 {
+            pinmux = <I2C0_SDA_P4>, <I2C0_SCL_P5>;
+            input-enable;
+            input-schmitt-enable;
+        };
+    };
 };

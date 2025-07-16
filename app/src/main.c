@@ -2,7 +2,11 @@
 #include <zephyr/drivers/uart.h>
 #include <zephyr/kernel.h>
 
-#include <si5351.h>
+#include <drivers/si5351.h>
+
+// The SI5351 is already configured in the DTS overlay,
+// but the application could (re)configure if needed.
+//#define CONFIGURE_SI5351_IN_APP
 
 
 static const struct device *si5351 = DEVICE_DT_GET_ANY(silabs_si5351);
@@ -18,19 +22,19 @@ int main(void)
 		return 0;
 	}
 
-	/* Wait for USB connected
+	/* Wait for USB connected */
 	uint32_t dtr = 0;
 	while (!dtr) {
 		uart_line_ctrl_get(usb_device, UART_LINE_CTRL_DTR, &dtr);
 		k_sleep(K_MSEC(100));
 	}
-	*/
 
 	if (!device_is_ready(si5351)) {
 		printk("Error: Si5351 is not available.\r\n");
 		return 1;
 	}
 
+#ifdef CONFIGURE_SI5351_IN_APP
 	/* Initialise the sensor */
 	err = si5351_begin(si5351);
 	if (err < 0) {
@@ -97,6 +101,7 @@ int main(void)
 	}
 
 	k_sleep(K_MSEC(100));
+#endif
 
 	uint8_t status = 0;
 	err = si5351_get_status(si5351, &status);

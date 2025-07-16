@@ -11,7 +11,7 @@ if SI5351
 
 config SI5351_INIT_PRIORITY
 	int "Si5351 init priority"
-	default KERNEL_INIT_PRIORITY_DEVICE
+	default APPLICATION_INIT_PRIORITY
 	help
 	  Si5351 initialization priority.
 

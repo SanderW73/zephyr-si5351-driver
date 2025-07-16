@@ -47,7 +47,7 @@
 LOG_MODULE_REGISTER(si5351_driver, CONFIG_SI5351_LOG_LEVEL);
 
 #include <zephyr/drivers/i2c.h>
-#include "si5351.h"
+#include <drivers/si5351.h>
 #include "si5351_regmap.h"
 #include <stdlib.h>
 #include <math.h>
@@ -111,7 +111,9 @@ static int enable_spread_spectrum(const struct device *dev, bool enabled);
 static int begin(const struct device *dev)
 {
 	struct si5351_data *data = dev->data;
-	int err;
+	int err = 0;
+
+	LOG_DBG("begin");
 
 	uint8_t status;
 	err = si5351_i2c_read8(dev, SI5351_REGISTER_0_DEVICE_STATUS, &status);
@@ -125,7 +127,7 @@ static int begin(const struct device *dev)
 	/* Disable all outputs setting CLKx_DIS high */
 	err = si5351_i2c_write8(dev, SI5351_REGISTER_3_OUTPUT_ENABLE_CONTROL, 0xFF);
 	if (err < 0) {
-		return err;
+		goto on_error;
 	}
 
 	/* Power down all output drivers */
@@ -135,14 +137,14 @@ static int begin(const struct device *dev)
 	}
 	err = si5351_i2c_write(dev, SI5351_REGISTER_16_CLK0_CONTROL, clk_control, 8);
 	if (err < 0) {
-		return err;
+		goto on_error;
 	}
 
 	/* Set the load capacitance for the XTAL */
 	err = si5351_i2c_write8(dev, SI5351_REGISTER_183_CRYSTAL_INTERNAL_LOAD_CAPACITANCE,
 				data->crystal_load);
 	if (err < 0) {
-		return err;
+		goto on_error;
 	}
 
 	/* Disable spread spectrum output. */
@@ -163,33 +165,42 @@ static int begin(const struct device *dev)
 	data->initialised = true;
 
 	return 0;
+
+on_error:
+	LOG_ERR("begin failed (%d)", err);
+	return err;
 }
 
 static int setup_pll(const struct device *dev, si5351_pll_t pll, uint8_t mult, uint32_t num,
 		     uint32_t denom)
 {
 	struct si5351_data *data = dev->data;
-	int err;
+	int err = 0;
 
 	uint32_t P1; /* PLL config register P1 */
 	uint32_t P2; /* PLL config register P2 */
 	uint32_t P3; /* PLL config register P3 */
 
+	LOG_DBG("setup_pll(%d, %d, %d)", pll, mult, num);
+
 	/* Basic validation */
 	if (!data->initialised) {
-		return EPERM;
+		err = EPERM;
 	}
 	if (mult < 15 || mult > 90) {
-		return EINVAL;
+		err = EINVAL;
 	}
 	if (denom == 0) {
-		return EINVAL;
+		err = EINVAL;
 	}
 	if (num > 0xFFFFF) {
-		return EINVAL;
+		err = EINVAL;
 	}
 	if (denom > 0xFFFFF) {
-		return EINVAL;
+		err = EINVAL;
+	}
+	if (err < 0) {
+		goto on_error;
 	}
 
 	/* Feedback Multisynth Divider Equation
@@ -235,13 +246,13 @@ static int setup_pll(const struct device *dev, si5351_pll_t pll, uint8_t mult, u
 
 	err = si5351_i2c_write(dev, baseaddr, reg_values, ARRAY_SIZE(reg_values));
 	if (err < 0) {
-		return err;
+		goto on_error;
 	}
 
 	/* Reset both PLLs */
 	err = si5351_i2c_write8(dev, SI5351_REGISTER_177_PLL_RESET, (1 << 7) | (1 << 5));
 	if (err < 0) {
-		return err;
+		goto on_error;
 	}
 
 	/* Store the frequency settings for use with the Multisynth helper */
@@ -256,6 +267,10 @@ static int setup_pll(const struct device *dev, si5351_pll_t pll, uint8_t mult, u
 	}
 
 	return 0;
+
+on_error:
+	LOG_ERR("setup_pll failed (%d)", err);
+	return err;
 }
 
 static int setup_pll_int(const struct device *dev, si5351_pll_t pll, uint8_t mult)
@@ -267,41 +282,47 @@ static int setup_multisynth(const struct device *dev, si5351_output_t output, si
 			   uint32_t num, uint32_t denom)
 {
 	struct si5351_data *data = dev->data;
-	int err;
+	int err = 0;
 
 	uint32_t P1; /* Multisynth config register P1 */
 	uint32_t P2; /* Multisynth config register P2 */
 	uint32_t P3; /* Multisynth config register P3 */
 
+	LOG_DBG("setup_multisynth(%d, %d, %d, %d, %d)", output, pll, div, num, denom);
+
 	/* Basic validation */
 	if (!data->initialised) {
-		return EPERM;
+		err = EPERM;
 	}
 	if (output >= 3) {
-		return EINVAL;
+		err = EINVAL;
 	}
 	if (div <= 3 || div > 2048) {
-		return EINVAL;
+		err = EINVAL;
 	}
 	if (denom == 0) {
-		return EINVAL;
+		err = EINVAL;
 	}
 	if (num > 0xFFFFF) {
-		return EINVAL;
+		err = EINVAL;
 	}
 	if (denom > 0xFFFFF) {
-		return EINVAL;
+		err = EINVAL;
 	}
 
 	/* Make sure the requested PLL has been initialised */
 	if (pll == SI5351_PLL_A) {
 		if (!data->plla_configured) {
-			return EINVAL;
+			err = EINVAL;
 		}
 	} else {
 		if (!data->pllb_configured) {
-			return EINVAL;
+			err = EINVAL;
 		}
+	}
+
+	if (err < 0) {
+		goto on_error;
 	}
 
 	/* Output Multisynth Divider Equations
@@ -367,7 +388,7 @@ static int setup_multisynth(const struct device *dev, si5351_output_t output, si
 	};
 	err = si5351_i2c_write(dev, baseaddr, reg_values, ARRAY_SIZE(reg_values));
 	if (err < 0) {
-		return err;
+		goto on_error;
 	}
 
 	/* Configure the clk control and enable the output */
@@ -382,14 +403,21 @@ static int setup_multisynth(const struct device *dev, si5351_output_t output, si
 	}
 	switch (output) {
 	case 0:
-		return si5351_i2c_write8(dev, SI5351_REGISTER_16_CLK0_CONTROL, clkControlReg);
+		err = si5351_i2c_write8(dev, SI5351_REGISTER_16_CLK0_CONTROL, clkControlReg);
 	case 1:
-		return si5351_i2c_write8(dev, SI5351_REGISTER_17_CLK1_CONTROL, clkControlReg);
+		err = si5351_i2c_write8(dev, SI5351_REGISTER_17_CLK1_CONTROL, clkControlReg);
 	case 2:
-		return si5351_i2c_write8(dev, SI5351_REGISTER_18_CLK2_CONTROL, clkControlReg);
+		err = si5351_i2c_write8(dev, SI5351_REGISTER_18_CLK2_CONTROL, clkControlReg);
+	}
+	if (err < 0) {
+		goto on_error;
 	}
 
 	return 0;
+
+on_error:
+	LOG_ERR("setup_multisynth failed (%d)", err);
+	return err;
 }
 
 static int setup_multisynth_int(const struct device *dev, si5351_output_t output, si5351_pll_t pll,
@@ -401,6 +429,8 @@ static int setup_multisynth_int(const struct device *dev, si5351_output_t output
 static int enable_spread_spectrum(const struct device *dev, bool enabled)
 {
 	uint8_t reg_value;
+	LOG_DBG("enable_spread_spectrum(%d)", enabled);
+
 	int err = si5351_i2c_read8(dev, SI5351_REGISTER_149_SPREAD_SPECTRUM_PARAMETERS, &reg_value);
 	if (err < 0) {
 		return err;
@@ -412,33 +442,63 @@ static int enable_spread_spectrum(const struct device *dev, bool enabled)
 		reg_value &= ~0x80;
 	}
 
-	return si5351_i2c_write8(dev, SI5351_REGISTER_149_SPREAD_SPECTRUM_PARAMETERS, reg_value);
+	err = si5351_i2c_write8(dev, SI5351_REGISTER_149_SPREAD_SPECTRUM_PARAMETERS, reg_value);
+	if (err < 0) {
+		LOG_ERR("enable_spread_spectrum failed (%d)", err);
+	}
+	return err;
 }
 
 static int enable_outputs(const struct device *dev, bool enabled)
 {
 	struct si5351_data *data = dev->data;
+	int err = 0;
 
 	if (!data->initialised) {
 		return EPERM;
 	}
 
-	return si5351_i2c_write8(dev, SI5351_REGISTER_3_OUTPUT_ENABLE_CONTROL,
+	err =  si5351_i2c_write8(dev, SI5351_REGISTER_3_OUTPUT_ENABLE_CONTROL,
 				enabled ? 0x00 : 0xFF);
+	if (err < 0) {
+		LOG_ERR("enable_outputs failed (%d)", err);
+	}
+	return err;
+}
+
+static int enable_selected_outputs(const struct device *dev, bool enabled_0, bool enabled_1, bool enabled_2)
+{
+	LOG_DBG("enable_selected_outputs(%d, %d, %d)", enabled_0, enabled_1, enabled_2);
+
+	uint8_t flags = (enabled_0 ? 0b001 : 0) + (enabled_1 ? 0b010 : 0) + (enabled_2 ? 0b100 : 0);
+	int err = si5351_i2c_write8(dev, SI5351_REGISTER_3_OUTPUT_ENABLE_CONTROL, ~flags);
+	if (err < 0) {
+		LOG_ERR("enable_selected_outputs failed (%d)", err);
+	}
+	return err;
 }
 
 static int get_status(const struct device *dev, uint8_t *status)
 {
-	return si5351_i2c_read8(dev, SI5351_REGISTER_0_DEVICE_STATUS, status);
+	LOG_DBG("get_status()");
+
+	int err = si5351_i2c_read8(dev, SI5351_REGISTER_0_DEVICE_STATUS, status);
+	if (err < 0) {
+		LOG_ERR("get_status failed (%d)", err);
+	}
+	return err;
 }
 
 static int setup_rdiv(const struct device *dev, si5351_output_t output, si5351_rdiv_t div)
 {
 	struct si5351_data *data = dev->data;
-	int err;
+	int err = 0;
+
+	LOG_DBG("setup_rdiv(%d, %d)", output, div);
 
 	if (output >= 3) {
-		return EINVAL;
+		err = EINVAL;
+		goto on_error;
 	}
 
 	uint8_t reg, reg_value;
@@ -455,7 +515,7 @@ static int setup_rdiv(const struct device *dev, si5351_output_t output, si5351_r
 
 	err = si5351_i2c_read8(dev, reg, &reg_value);
 	if (err < 0) {
-		return err;
+		goto on_error;
 	}
 
 	reg_value &= 0x0F;
@@ -465,7 +525,16 @@ static int setup_rdiv(const struct device *dev, si5351_output_t output, si5351_r
 	reg_value |= divider;
 	data->last_rdiv_value[output] = divider;
 
-	return si5351_i2c_write8(dev, reg, reg_value);
+	err = si5351_i2c_write8(dev, reg, reg_value);
+	if (err < 0) {
+		goto on_error;
+	}
+
+	return 0;
+
+on_error:
+	LOG_DBG("setup_rdiv failed (%d)", err);
+	return err;
 }
 
 static const struct si5351_driver_api si5351_api = {
@@ -480,10 +549,41 @@ static const struct si5351_driver_api si5351_api = {
 	.setup_rdiv = &setup_rdiv
 };
 
+
+static int init_pll(const struct device *dev, si5351_pll_t pll, const struct si5351_pll_config *config)
+{
+	if (config->enabled) {
+		return setup_pll(dev, pll, config->mult, config->num, config->denom);
+	}
+	return 0;
+}
+
+static int init_output(const struct device *dev, si5351_output_t output, const struct si5351_output_config *config)
+{
+	int err = 0;
+	if (config->enabled) {
+		err = setup_multisynth(dev, output, config->pll, config->div, config->num, config->denom);
+	}
+	if (err >= 0 && config->rdiv >= 0) {
+		err = setup_rdiv(dev, output, config->rdiv);
+	}
+	return err;
+}
+
+static int init_enable_outputs(const struct device *dev, bool enabled)
+{
+	const struct si5351_config *config = dev->config;
+	if (enabled) {
+		return enable_selected_outputs(dev, config->out_0.enabled, config->out_1.enabled, config->out_2.enabled);
+	}
+	return 0;
+}
+
 static int si5351_init(const struct device *dev)
 {
 	const struct si5351_config *config = dev->config;
 	struct si5351_data *data = dev->data;
+	int err = 0;
 
 	if (!device_is_ready(config->i2c.bus)) {
 		LOG_ERR("I2C bus device not ready");
@@ -503,7 +603,41 @@ static int si5351_init(const struct device *dev)
 		data->last_rdiv_value[i] = 0;
 	}
 
-	return 0;
+	if (config->pll_a.enabled || config->pll_b.enabled)
+	{
+		err = begin(dev);
+		if (err < 0) {
+			return err;
+		}
+	}
+
+	err = init_pll(dev, SI5351_PLL_A, &config->pll_a);
+	if (err < 0) {
+		return err;
+	}
+
+	err = init_pll(dev, SI5351_PLL_B, &config->pll_b);
+	if (err < 0) {
+		return err;
+	}
+
+	err = init_output(dev, SI5351_OUTPUT_0, &config->out_0);
+	if (err < 0) {
+		return err;
+	}
+
+	err = init_output(dev, SI5351_OUTPUT_1, &config->out_1);
+	if (err < 0) {
+		return err;
+	}
+
+	err = init_output(dev, SI5351_OUTPUT_2, &config->out_2);
+	if (err < 0) {
+		return err;
+	}
+
+	err = init_enable_outputs(dev, config->enable_outputs);
+	return err;
 }
 
 
@@ -512,6 +646,43 @@ static int si5351_init(const struct device *dev)
                                                                                                    \
 	static const struct si5351_config si5351_config_##inst = {                                 \
 		.i2c = I2C_DT_SPEC_INST_GET(inst),                                                 \
+		.pll_a = { \
+			.enabled = DT_NODE_HAS_PROP(DT_DRV_INST(inst), pll_a_mult), \
+			.mult = DT_INST_PROP_OR(inst, pll_a_mult, -1), \
+			.num = DT_INST_PROP(inst, pll_a_num), \
+			.denom = DT_INST_PROP(inst, pll_a_denom), \
+		}, \
+		.pll_b = { \
+			.enabled = DT_NODE_HAS_PROP(DT_DRV_INST(inst), pll_b_mult), \
+			.mult = DT_INST_PROP_OR(inst, pll_b_mult, -1), \
+			.num = DT_INST_PROP(inst, pll_b_num), \
+			.denom = DT_INST_PROP(inst, pll_b_denom), \
+		}, \
+		.out_0 = { \
+			.enabled = DT_NODE_HAS_PROP(DT_DRV_INST(inst), output_0_pll), \
+			.pll = DT_INST_PROP_OR(inst, output_0_pll, -1), \
+			.div = DT_INST_PROP_OR(inst, output_0_div, -1), \
+			.num = DT_INST_PROP_OR(inst, output_0_num, -1), \
+			.denom = DT_INST_PROP_OR(inst, output_0_denom, -1), \
+			.rdiv = DT_INST_PROP_OR(inst, output_0_rdiv, -1), \
+		}, \
+		.out_1 = { \
+			.enabled = DT_NODE_HAS_PROP(DT_DRV_INST(inst), output_1_pll), \
+			.pll = DT_INST_PROP_OR(inst, output_1_pll, -1), \
+			.div = DT_INST_PROP_OR(inst, output_1_div, -1), \
+			.num = DT_INST_PROP_OR(inst, output_1_num, -1), \
+			.denom = DT_INST_PROP_OR(inst, output_1_denom, -1), \
+			.rdiv = DT_INST_PROP_OR(inst, output_1_rdiv, -1), \
+		}, \
+		.out_2 = { \
+			.enabled = DT_NODE_HAS_PROP(DT_DRV_INST(inst), output_2_pll), \
+			.pll = DT_INST_PROP_OR(inst, output_2_pll, -1), \
+			.div = DT_INST_PROP_OR(inst, output_2_div, -1), \
+			.num = DT_INST_PROP_OR(inst, output_2_num, -1), \
+			.denom = DT_INST_PROP_OR(inst, output_2_denom, -1), \
+			.rdiv = DT_INST_PROP_OR(inst, output_2_rdiv, -1), \
+		}, \
+		.enable_outputs = DT_INST_PROP(inst, enable_outputs) \
 	};                                                                                         \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(inst, si5351_init, NULL, &si5351_data_##inst, &si5351_config_##inst, \
