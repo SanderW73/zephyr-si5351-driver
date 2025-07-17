@@ -76,40 +76,14 @@ typedef enum {
 } si5351_rdiv_t;
 
 
-__subsystem struct si5351_driver_api {
-  int (*begin)(const struct device *dev);
-  int (*get_status)(const struct device *dev, uint8_t *status);
-	int (*setup_pll)(const struct device *dev, si5351_pll_t pll, uint8_t mult, uint32_t num, uint32_t denom);
-	int (*setup_pll_int)(const struct device *dev, si5351_pll_t pll, uint8_t mult);
-  int (*setup_multisynth)(const struct device *dev, si5351_output_t output, si5351_pll_t pll, uint32_t div, uint32_t num, uint32_t denom);
-  int (*setup_multisynth_int)(const struct device *dev, si5351_output_t output, si5351_pll_t pll, uint32_t div);
-  int (*enable_spread_spectrum)(const struct device *dev, bool enabled);
-  int (*enable_outputs)(const struct device *dev, bool enabled);
-  int (*setup_rdiv)(const struct device *dev, si5351_output_t output, si5351_rdiv_t div);
-};
-
-
 /**
  *  @brief  Initializes I2C and configures the breakout (call this function
  *  before doing anything else)
  */
-__syscall int si5351_begin(const struct device *dev);
-
-static inline int z_impl_si5351_begin(const struct device *dev)
-{
-  __ASSERT_NO_MSG(DEVICE_API_IS(si5351, dev));
-  return DEVICE_API_GET(si5351, dev)->begin(dev);
-}
+int si5351_begin(const struct device *dev);
 
 
-__syscall int si5351_get_status(const struct device *dev, uint8_t *status);
-
-static inline int z_impl_si5351_get_status(const struct device *dev, uint8_t *status)
-{
-  __ASSERT_NO_MSG(DEVICE_API_IS(si5351, dev));
-  return DEVICE_API_GET(si5351, dev)->get_status(dev, status);
-}
-
+int si5351_get_status(const struct device *dev, uint8_t *status);
 
 /**
  *  @brief  Sets the multiplier for the specified PLL
@@ -139,14 +113,7 @@ static inline int z_impl_si5351_get_status(const struct device *dev, uint8_t *st
  *
  *  See: http://www.silabs.com/Support%20Documents/TechnicalDocs/AN619.pdf
 */
-__syscall int si5351_setup_pll(const struct device *dev, si5351_pll_t pll, uint8_t mult, uint32_t num, uint32_t denom);
-
-static inline int z_impl_si5351_setup_pll(const struct device *dev, si5351_pll_t pll, uint8_t mult, uint32_t num, uint32_t denom)
-{
-  __ASSERT_NO_MSG(DEVICE_API_IS(si5351, dev));
-  return DEVICE_API_GET(si5351, dev)->setup_pll(dev, pll, mult, num, denom);
-}
-
+int si5351_setup_pll(const struct device *dev, si5351_pll_t pll, uint8_t mult, uint32_t num, uint32_t denom);
 
 /**
  * @brief  Sets the multiplier for the specified PLL using integer values
@@ -156,14 +123,10 @@ static inline int z_impl_si5351_setup_pll(const struct device *dev, si5351_pll_t
  *               - SI5351_PLL_B
  * @param  mult  The PLL integer multiplier (must be between 15 and 90)
  */
-__syscall int si5351_setup_pll_int(const struct device *dev, si5351_pll_t pll, uint8_t mult);
-
-static inline int z_impl_si5351_setup_pll_int(const struct device *dev, si5351_pll_t pll, uint8_t mult)
+static inline int si5351_setup_pll_int(const struct device *dev, si5351_pll_t pll, uint8_t mult)
 {
-  __ASSERT_NO_MSG(DEVICE_API_IS(si5351, dev));
-  return DEVICE_API_GET(si5351, dev)->setup_pll_int(dev, pll, mult);
+	return si5351_setup_pll(dev, pll, mult, 0, 1);
 }
-
 
 /**
  *  @brief  Configures the Multisynth divider, which determines the
@@ -220,14 +183,7 @@ static inline int z_impl_si5351_setup_pll_int(const struct device *dev, si5351_p
  *  @note   For frequencies below 500kHz (down to 8kHz) Rx_DIV must be
  *          used, but this isn't currently implemented in the driver.
  */
-__syscall int si5351_setup_multisynth(const struct device *dev, si5351_output_t output, si5351_pll_t pll, uint32_t div, uint32_t num, uint32_t denom);
-
-static inline int z_impl_si5351_setup_multisynth(const struct device *dev, si5351_output_t output, si5351_pll_t pll, uint32_t div, uint32_t num, uint32_t denom)
-{
-  __ASSERT_NO_MSG(DEVICE_API_IS(si5351, dev));
-  return DEVICE_API_GET(si5351, dev)->setup_multisynth(dev, output, pll, div, num, denom);
-}
-
+int si5351_setup_multisynth(const struct device *dev, si5351_output_t output, si5351_pll_t pll, uint32_t div, uint32_t num, uint32_t denom);
 
 /**
  *  @brief  Configures the Multisynth divider using integer output.
@@ -242,50 +198,23 @@ static inline int z_impl_si5351_setup_multisynth(const struct device *dev, si535
  *                    - SI5351_MULTISYNTH_DIV_6
  *                    - SI5351_MULTISYNTH_DIV_8
  */
-__syscall int si5351_setup_multisynth_int(const struct device *dev, si5351_output_t output, si5351_pll_t pll, uint32_t div);
-
-static inline int z_impl_si5351_setup_multisynth_int(const struct device *dev, si5351_output_t output, si5351_pll_t pll, uint32_t div)
+static inline int si5351_setup_multisynth_int(const struct device *dev, si5351_output_t output, si5351_pll_t pll, uint32_t div)
 {
-  __ASSERT_NO_MSG(DEVICE_API_IS(si5351, dev));
-  return DEVICE_API_GET(si5351, dev)->setup_multisynth_int(dev, output, pll, div);
+	return si5351_setup_multisynth(dev, output, pll, div, 0, 1);
 }
-
 
 /**
  *  @brief  Enables or disables spread spectrum
  *  @param  enabled Whether spread spectrum output is enabled
  */
-__syscall int si5351_enable_spread_spectrum(const struct device *dev, bool enabled);
-
-static inline int z_impl_si5351_enable_spread_spectrum(const struct device *dev, bool enabled)
-{
-  __ASSERT_NO_MSG(DEVICE_API_IS(si5351, dev));
-  return DEVICE_API_GET(si5351, dev)->enable_spread_spectrum(dev, enabled);
-}
-
+int si5351_enable_spread_spectrum(const struct device *dev, bool enabled);
 
 /**
  *  @brief  Enables or disables all clock outputs
  *  @param  enabled Whether output is enabled
  */
-__syscall int si5351_enable_outputs(const struct device *dev, bool enabled);
+int si5351_enable_outputs(const struct device *dev, bool enabled);
 
-static inline int z_impl_si5351_enable_outputs(const struct device *dev, bool enabled)
-{
-  __ASSERT_NO_MSG(DEVICE_API_IS(si5351, dev));
-  return DEVICE_API_GET(si5351, dev)->enable_outputs(dev, enabled);
-}
-
-
-__syscall int si5351_setup_rdiv(const struct device *dev, si5351_output_t output, si5351_rdiv_t div);
-
-static inline int z_impl_si5351_setup_rdiv(const struct device *dev, si5351_output_t output, si5351_rdiv_t div)
-{
-  __ASSERT_NO_MSG(DEVICE_API_IS(si5351, dev));
-  return DEVICE_API_GET(si5351, dev)->setup_rdiv(dev, output, div);
-}
-
-
-#include <syscalls/si5351.h>
+int si5351_setup_rdiv(const struct device *dev, si5351_output_t output, si5351_rdiv_t div);
 
 #endif
